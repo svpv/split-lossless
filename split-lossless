@@ -1,0 +1,25 @@
+#!/bin/sh
+set -eu
+
+if set *.cue && [ $# = 1 ] && [ -f "$1" ]; then
+	cue=$1
+else
+	echo >& "cue sheet not found"
+fi
+
+if set *.flac && [ $# = 1 ] && [ -f "$1" ]; then
+	mkdir -p tmp
+	flac -dc "$1" >tmp/out.wav
+elif set *.ape && [ $# = 1 ] && [ -f "$1" ]; then
+	mkdir -p tmp
+	mac "$1" tmp/out.wav -d
+else
+	echo >& "lossless format not recognized"
+	exit 1
+fi
+
+lame -V6.5 tmp/out.wav tmp/out.mp3
+rm -rf split
+mkdir split
+mp3splt -c "$cue" -d split -o '@n @t' tmp/out.mp3
+rm -rf tmp
