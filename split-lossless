@@ -1,4 +1,7 @@
 #!/bin/sh
+#
+# Split lossless image into mp3 tracks for portable media.
+#
 set -eu
 
 if set *.cue && [ $# = 1 ] && [ -f "$1" ]; then
