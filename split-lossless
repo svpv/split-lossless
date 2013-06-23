@@ -96,6 +96,22 @@ else
 fi
 set +o pipefail
 
+# Propagate year and genre.
+if grep -qs '^REM DATE \|^REM GENRE ' "$cue" &&
+ ! grep -qs ' REM DATE \| REM GENRE ' "$cue"; then
+	perl -pe <"$cue" >"$outdir"/.out.cue '
+		if (/^REM DATE |^REM GENRE /) {
+			$tags .= $_;
+		}
+		if (/^(\s+)TITLE/) {
+			$space = $1;
+			$tags =~ s/^\s*/$space/gm;
+			print $tags;
+		}'
+else
+	cat <"$cue" >"$outdir"/.out.cue
+fi
+
 # Split into tracks.
-mp3splt -c "$cue" -d "$outdir" -o '@n @t' "$outdir"/.out.mp3
-rm "$outdir"/.out.mp3
+mp3splt -c "$outdir"/.out.cue -d "$outdir" -o '@n @t' "$outdir"/.out.mp3
+rm "$outdir"/.out.mp3 "$outdir"/.out.cue
