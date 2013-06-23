@@ -2,8 +2,12 @@
 #
 # Split lossless image into mp3 tracks for portable media.
 #
+# Usage:
+# split-lossless [-V4] [-B160] [-b320] [in.flac [in.cue]] [out-dir]
+#
 set -eu
 
+# Process options.
 # lame -V4 should be close to perceptual transparency.
 # lame -V6.5 (equivalent to --resample 32 -V5.2) is acceptable.
 opt_V=-V4
@@ -22,40 +26,91 @@ while getopts V:B:b: opt; do
 done
 shift "$(($OPTIND-1))"
 
-if set *.cue && [ $# = 1 ] && [ -f "$1" ]; then
-	cue=$1
-else
-	echo >& "cue sheet not found"
+# Process args.
+in=
+cue=
+outdir=.
+if [ -n "${1-}" ] && [ -z "${1##*.flac}" -o -z "${1##*.ape}" ]; then
+	in=$1
+	shift
+	if [ -n "${1-}" ] && [ -z "${1##*.cue}" ]; then
+		cue=$1
+		shift
+	fi
 fi
-
-if set *.flac && [ $# = 1 ] && [ -f "$1" ]; then
-	mkdir -p tmp
-	flac -dc "$1" >tmp/out.wav
-elif set *.ape && [ $# = 1 ] && [ -f "$1" ]; then
-	mkdir -p tmp
-	mac "$1" tmp/out.wav -d
-else
-	echo >& "lossless format not recognized"
+if [ -n "${1-}" ]; then
+	outdir=$1
+	shift
+fi
+if [ $# -gt 0 ]; then
+	echo >&2 "${0##*/}: too many arguments"
 	exit 1
 fi
 
-lame $opt_V $opt_B $opt_b tmp/out.wav tmp/out.mp3
-rm -rf split
-mkdir split
-mp3splt -c "$cue" -d split -o '@n @t' tmp/out.mp3
-rm -rf tmp
+# Autodetect input.
+if [ -z "$in" ]; then
+	if set *.flac && [ $# = 1 ] && [ -f "$1" ]; then
+		in=$1
+	elif set *.ape && [ $# = 1 ] && [ -f "$1" ]; then
+		in=$1
+	else
+		echo >&2 "${0##*/}: input not recognized"
+		exit 1
+	fi
+fi
+if [ -z "$cue" ]; then
+	cue=${in%.*}.cue
+	if [ -f "$cue" ]; then
+		: good
+	elif set *.cue && [ $# = 1 ] && [ -f "$1" ]; then
+		cue=$1
+	else
+		echo >&2 "${0##*/}: cue sheet not found"
+		exit 1
+	fi
+fi
 
-tag_mp3()
-{
-	local no="$1" mp3="$2" tag
+# Setup output directory.
+mkdir -p "$outdir"
+if set "$outdir"/*.mp3 && [ $# -gt 1 -o -e "$1" -o -L "$1" ]; then
+	echo >&2 "${0##*/}: directory $outdir already has mp3 files"
+	exit 1
+fi
+
+# Decode and compress.
+set -o pipefail
+if [ -z "${in##*.flac}" ]; then
+	if [ -e /dev/stdin ]; then
+		# lame will show the progress and histogram.
+		flac -dc -s "$in" |
+		lame $opt_V $opt_B $opt_b /dev/stdin "$outdir"/.out.mp3
+	else
+		# flac will show the progress.
+		flac -dc "$in" |
+		lame $opt_V $opt_B $opt_b - "$outdir"/.out.mp3
+	fi
+else
+	# mac will show the progress.
+	mac "$in" - -d |
+	lame $opt_V $opt_B $opt_b - "$outdir"/.out.mp3
+fi
+set +o pipefail
+
+# Split into tracks.
+mp3splt -c "$cue" -d "$outdir" -o '@n @t' "$outdir"/.out.mp3
+rm "$outdir"/.out.mp3
+
+# Tag tracks.
+no=0
+for mp3 in "$outdir"/*.mp3; do
+	no=$(($no+1))
 	for tag in 'title %t -t' 'album %T -l' 'artist %p -a' 'comment %c -c' 'trackno %n -n'; do
-		set -- $tag
-		local name="$1" fmt="$2" opt="$3" val
+		set $tag
+		name="$1" fmt="$2" opt="$3"
 		val=$(cueprint -n "$no" -t "$fmt" "$cue")
 		[ -n "$val" ] || continue
 		mp3info $opt "$val" "$mp3"
 	done
-	local year genre
 	year=$(sed -n '/^REM DATE \(19[0-9][0-9]\|20[0-9][0-9]\).*/{s//\1/;p;q}' "$cue")
 	if [ -n "$year" ]; then
 		mp3info -y "$year" "$mp3"
@@ -66,11 +121,4 @@ tag_mp3()
 	if [ -n "$genre" ]; then
 		mp3info -g "$genre" "$mp3"
 	fi
-
-}
-
-no=1
-for mp3 in split/*.mp3; do
-	tag_mp3 "$no" "$mp3"
-	no=$(($no+1))
 done
