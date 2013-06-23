@@ -18,7 +18,7 @@ else
 	exit 1
 fi
 
-lame -V6.5 tmp/out.wav tmp/out.mp3
+lame -V6.5 -B160 tmp/out.wav tmp/out.mp3
 rm -rf split
 mkdir split
 mp3splt -c "$cue" -d split -o '@n @t' tmp/out.mp3
