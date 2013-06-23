@@ -99,26 +99,3 @@ set +o pipefail
 # Split into tracks.
 mp3splt -c "$cue" -d "$outdir" -o '@n @t' "$outdir"/.out.mp3
 rm "$outdir"/.out.mp3
-
-# Tag tracks.
-no=0
-for mp3 in "$outdir"/*.mp3; do
-	no=$(($no+1))
-	for tag in 'title %t -t' 'album %T -l' 'artist %p -a' 'comment %c -c' 'trackno %n -n'; do
-		set $tag
-		name="$1" fmt="$2" opt="$3"
-		val=$(cueprint -n "$no" -t "$fmt" "$cue")
-		[ -n "$val" ] || continue
-		mp3info $opt "$val" "$mp3"
-	done
-	year=$(sed -n '/^REM DATE \(19[0-9][0-9]\|20[0-9][0-9]\).*/{s//\1/;p;q}' "$cue")
-	if [ -n "$year" ]; then
-		mp3info -y "$year" "$mp3"
-	fi
-	genre=$(cueprint -n "$no" -t "%g" "$cue")
-	[ -n "$genre" ] ||
-	genre=$(sed -n '/^REM GENRE \([A-Z][a-z]*\).*/{s//\1/;p;q}' "$cue")
-	if [ -n "$genre" ]; then
-		mp3info -g "$genre" "$mp3"
-	fi
-done
