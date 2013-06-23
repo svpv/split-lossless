@@ -4,6 +4,24 @@
 #
 set -eu
 
+# lame -V4 should be close to perceptual transparency.
+# lame -V6.5 (equivalent to --resample 32 -V5.2) is acceptable.
+opt_V=-V4
+opt_B=
+opt_b=
+while getopts V:B:b: opt; do
+	case "$opt" in
+		V) opt_V=-V${OPTARG:?} ;;
+		B) opt_B=-B${OPTARG:?} ;;
+		b) opt_b=-b${OPTARG:?}
+		   # Adjust for maximum quality.
+		   if [ "$opt_b" = '-b320' ]; then
+			   opt_V=
+		   fi ;;
+	esac
+done
+shift "$(($OPTIND-1))"
+
 if set *.cue && [ $# = 1 ] && [ -f "$1" ]; then
 	cue=$1
 else
@@ -21,7 +39,7 @@ else
 	exit 1
 fi
 
-lame -V6.5 -B160 tmp/out.wav tmp/out.mp3
+lame $opt_V $opt_B $opt_b tmp/out.wav tmp/out.mp3
 rm -rf split
 mkdir split
 mp3splt -c "$cue" -d split -o '@n @t' tmp/out.mp3
