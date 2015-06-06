@@ -20,7 +20,7 @@ while getopts V:B:b: opt; do
 		b) opt_b=-b${OPTARG:?}
 		   # Adjust for maximum quality.
 		   if [ "$opt_b" = '-b320' ]; then
-			   opt_V=
+			   opt_V='-h'
 		   fi ;;
 	esac
 done
