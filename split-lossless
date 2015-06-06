@@ -8,9 +8,7 @@
 set -eu
 
 # Process options.
-# lame -V4 should be close to perceptual transparency.
-# lame -V6.5 (equivalent to --resample 32 -V5.2) is acceptable.
-opt_V=-V4
+opt_V=-V3
 opt_B=
 opt_b=
 while getopts V:B:b: opt; do
