@@ -111,5 +111,5 @@ else
 fi
 
 # Split into tracks.
-mp3splt -c "$outdir"/.out.cue -d "$outdir" -o '@n @t' "$outdir"/.out.mp3
+mp3splt -c "$outdir"/.out.cue -d "$outdir" -o '@n @t' -a -b "$outdir"/.out.mp3
 rm "$outdir"/.out.mp3 "$outdir"/.out.cue
